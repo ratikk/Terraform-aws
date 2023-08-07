@@ -294,9 +294,9 @@ module "ec2_03" {
   ]
 
     tags = {
-    Name        = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP}-EC2_03"
-    Environment = "${local.hhs_tags.AGENCY}-${local.hhs_tags.ENV}-${local.hhs_tags.APP}-DB-${local.hhs_tags.ZONE_A}" #"PROD-PRIVATE-DB-A"
-    Application = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP}-${local.hhs_tags.ENV}" #"HHSC-TIERS-PROD"
+      Name        = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP_NAME}-EC2_03"
+      Environment = "${local.hhs_tags.AGENCY}-${local.hhs_tags.ENV}-${local.hhs_tags.APP_NAME}-DB-${local.hhs_tags.ZONE_A}" #"PROD-PRIVATE-DB-A"
+      Application = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP_NAME}-${local.hhs_tags.ENV}" #"HHSC-TIERS-PROD"
     # Add more tags as needed
   }
 }

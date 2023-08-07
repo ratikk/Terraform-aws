@@ -1,5 +1,4 @@
 locals {
-
     pcm_tags = {
         COST = ""
         SERVICES = ""
