@@ -1,2 +1,1 @@
-# TIERS-terraform
-TIERS Cloud Terraform Scripts home
+This is the main terraform file
