@@ -1,5 +1,6 @@
 locals {
-    pcm_tags  {
+
+    pcm_tags = {
         COST = ""
         SERVICES = ""
         CLOUD_ARCH = ""
@@ -7,11 +8,11 @@ locals {
         SECURITY = ""
     }
 
-    hhs_tags {
+    hhs_tags = {
         AGENCY = "HHS"
         ENV = "PROD"
         APP_NAME = "TIERS"
-        ZONE_A = "A"
+        ZONE_A = "A"
         ZONE_B = "B"
     }
 }
