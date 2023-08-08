@@ -9,5 +9,5 @@ echo "Validating Terraform Script"
 terraform validate
 
 env_arg="$1"
-echo "Applying Terraform to $env_arg"
+echo "Applying Terraform State changes to $env_arg Environment"
 terraform apply -auto-approve -var-file="./config/$env_arg/primary-us-east-2/configuration.tfvars"

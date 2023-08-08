@@ -1,5 +1,12 @@
 # TERRAFORM SCRIPT FOR HHS TIERS CLOUD MIGRATION
 
+## FIRST RUN
+Execute below command for first time execution of script
+
+`
+$terraform init
+`
+
 ## CONFIGURATION
 
 Current Environment Configuration is stored in "./config/prod/primary-us-east-2"
