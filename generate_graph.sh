@@ -1,1 +1,0 @@
-terraform graph | dot -Tpng -Kfdp > graph.png

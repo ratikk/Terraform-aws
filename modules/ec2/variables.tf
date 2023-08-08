@@ -2,6 +2,10 @@ variable "ami_id" {
   description = "The ID of the desired AMI for RHEL 8.6."
 }
 
+variable "name" {
+  description = "EC2 instance name"
+}
+
 variable "instance_type" {
   description = "The desired instance type."
 }
@@ -15,13 +19,6 @@ variable "subnet_id" {
   description = "The subnet ID where the EC2 instance will be launched."
 }
 
-/**
-variable "ebs_block_devices" {
-  description = "A list of maps defining the EBS block devices for the EC2 instance."
-  type        = list(map(string))
-}
-**/
-
 variable "ebs_block_devices" {
   description = "List of EBS block devices for the EC2 instance"
   type        = list(object({
@@ -34,17 +31,17 @@ variable "ebs_block_devices" {
 }
 
 variable "volume_size_1" {
-  description = "The subnet ID where the EC2 instance will be launched."
+  description = "This is Volume Size for default boot volume. RHEL Snapshot is installed here"
 }
 
 variable "volume_name_2" {
-  description = "The subnet ID where the EC2 instance will be launched."
+  description = "This is Volume name for additional mount volume."
 }
 
 variable "volume_size_2" {
-  description = "The subnet ID where the EC2 instance will be launched."
+  description = "This is Volume Size for additional mount volume."
 }
 
 variable "tags" {
-  description = "The subnet ID where the EC2 instance will be launched."
+  description = "EC2 Tags"
 }

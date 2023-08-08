@@ -26,5 +26,8 @@ resource "aws_instance" "ec2_instance" {
     }
   }
 
-  tags = var.tags
+  tags = merge(
+    {Name = var.name},
+    var.tags
+  )
 }

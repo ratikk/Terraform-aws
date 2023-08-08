@@ -1,351 +1,80 @@
 # Virtual Private Cloud (VPC) Configuration
+
 module "spoke1-vpc" {
-  source = "./modules/aws-vpc"
-
-  vpc_cidr_block = "10.51.0.0/16"
-  cidr_block = {
-    subnet1 = "10.51.1.0/24"
-    subnet2 = "10.51.2.0/24"
-    subnet3 = "10.51.3.0/24"
-    subnet4 = "10.51.4.0/24"
-  }
-
-  availability_zones = {
-    subnet1 = "us-east-2a"
-    subnet2 = "us-east-2a"
-    subnet3 = "us-east-2b"
-    subnet4 = "us-east-2b"
-  }
-  
-  tags = {
-    vpc = {
-      Environment = "HHSC-TIERS-PROD"
+    source = "./modules/security/vpc"
+    vpc_cidr = var.tiers_config.vpc.cidr
+    cidr_block = var.tiers_config.vpc.cidr_block
+    availability_zones = var.tiers_config.vpc.availability_zones
+    tags = {
+        vpc = {
+            Environment = var.tiers_config.environment
+        }
+        subnet1 = {    
+            Environment = var.tiers_config.environment       
+        }
+        subnet2 = {       
+            Environment = var.tiers_config.environment     
+        }
+        subnet3 = {     
+            Environment = var.tiers_config.environment      
+        }
+        subnet4 = {    
+            Environment = var.tiers_config.environment        
+        }                
     }
-    subnet1 = {
-      Environment = "HHSC-TIERS-PROD"
-      Application = "PROD-PRIVATE-BATCH-A"
-    }
-    subnet2 = {
-      Environment = "HHSC-TIERS-PROD"
-      Application = "PROD-PRIVATE-DB-A"
-    }
-    subnet3 = {
-      Environment = "HHSC-TIERS-PROD"
-      Application = "PROD-PRIVATE-BATCH-B"
-    }
-    subnet4 = {
-      Environment = "HHSC-TIERS-PROD"
-      Application = "PROD-PRIVATE-DB-B"
-    }
-  }
 }
 
 # AWS Security Groups - For Batch Servers
 module "sg01" {
-source = "./modules/aws-sg"
-depends_on = [module.spoke1-vpc]
+    source = "./modules/security/security-groups"
+    depends_on = [module.spoke1-vpc]
 
-name_prefix       = "PROD-DB-SG"
-vpc_id_1         = module.spoke1-vpc.vpc_id
-
+    name_prefix       = var.tiers_config.security_groups.batch.name_prefix
+    vpc_id_1         = module.spoke1-vpc.vpc_id
 }
 
 # AWS Security Groups - For CDB 1 2 3 Servers
 module "sg02" {
-source = "./modules/aws-sg"
-depends_on = [module.spoke1-vpc]
+    source = "./modules/security/security-groups"
+    depends_on = [module.spoke1-vpc]
 
-name_prefix       = "PROD-BATCH-SG"
-vpc_id_1          = module.spoke1-vpc.vpc_id
-
+    name_prefix       = var.tiers_config.security_groups.db.name_prefix
+    vpc_id_1         = module.spoke1-vpc.vpc_id
 }
 
+# Batch Server EC2
+module "batch_ec2" {
+    source = "./modules/ec2"
+    count = length(var.tiers_config.batch_ec2)
+    depends_on = [ module.spoke1-vpc, module.sg01, module.sg02 ]
 
-# CDB1 
-module "ec2_01" {
-  source = "./modules/aws-ec2"
-  depends_on = [module.spoke1-vpc,module.sg01,module.sg02]
-
-  ami_id                = "ami-0c55b159cbfafe1f0"  # Replace with the desired AMI ID for RHEL 8.6
-  instance_type         = "x2iedn.32xlarge"  # Replace with the desired instance type
-
-  vpc_security_group_ids = [module.sg02.security_group_id]
-  subnet_id              = element(module.spoke1-vpc.subnet_order[*].id, 1)
-
-  # OS Drive
-  volume_size_1          = "8"
-
-  # Additional Disk #1 
-  volume_name_2          = "/dev/sdb"
-  volume_size_2          = "100"
-          
-  ebs_block_devices = [
-    {
-      device_name = "/dev/sdc"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdd"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sde"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdf"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdg"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdh"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdi"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdj"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdk"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-  ]
-
+    ami_id = lookup(var.rhel_ami[var.tiers_config.batch_ec2[count.index].ami_lookup], replace(var.tiers_config.region, "-", "_"))
+    name = "${var.agency_code}${var.pcm_seprator}${var.category}${var.ec2type}${var.tiers_config.batch_ec2[count.index].application}_${var.tiers_config.batch_ec2[count.index].name_suffix}"
+    instance_type = var.tiers_config.batch_ec2[count.index].instance_type
+    vpc_security_group_ids = [module.sg01.security_group_id]
+    subnet_id = element(module.spoke1-vpc.subnet_order[*].id, var.tiers_config.batch_ec2[count.index].subnet_id)
+    volume_size_1 = var.tiers_config.batch_ec2[count.index].volume_size_1
+    volume_name_2 = var.tiers_config.batch_ec2[count.index].volume_name_2
+    volume_size_2 = var.tiers_config.batch_ec2[count.index].volume_size_2
     tags = {
-    Name        = "EC2_01"
-    Environment = "PROD-PRIVATE-DB-A"
-    Application = "HHSC-TIERS-PROD"
-    # Add more tags as needed
-  }
+    }
 }
 
-# CDB2
-module "ec2_02" {
-  source = "./modules/aws-ec2"
-  depends_on = [module.spoke1-vpc,module.sg01,module.sg02]
+# DB Server EC2
+module "db_ec2" {
+    source = "./modules/ec2"
+    count = length(var.tiers_config.db_ec2)
+    depends_on = [ module.spoke1-vpc, module.sg01, module.sg02 ]
 
-  ami_id                = "ami-0c55b159cbfafe1f0"  # Replace with the desired AMI ID for RHEL 8.6
-  instance_type         = "x2iedn.8xlarge"  # Replace with the desired instance type
-
-  vpc_security_group_ids = [module.sg02.security_group_id]
-  subnet_id              = element(module.spoke1-vpc.subnet_order[*].id, 1)
-
-  # OS Drive
-  volume_size_1          = "8"
-
-  # Additional Disk #1 
-  volume_name_2          = "/dev/sdb"
-  volume_size_2          = "100"
-          
-  ebs_block_devices = [
-    {
-      device_name = "/dev/sdc"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdd"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sde"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdf"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdg"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdh"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdi"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdj"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    
-  ]
-
+    ami_id = lookup(var.rhel_ami[var.tiers_config.db_ec2[count.index].ami_lookup], replace(var.tiers_config.region, "-", "_"))
+    name = "${var.agency_code}${var.pcm_seprator}${var.category}${var.ec2type}${var.tiers_config.db_ec2[count.index].application}_${var.tiers_config.db_ec2[count.index].name_suffix}"
+    instance_type = var.tiers_config.db_ec2[count.index].instance_type
+    vpc_security_group_ids = [module.sg01.security_group_id]
+    subnet_id = element(module.spoke1-vpc.subnet_order[*].id, var.tiers_config.db_ec2[count.index].subnet_id)
+    volume_size_1 = var.tiers_config.db_ec2[count.index].volume_size_1
+    volume_name_2 = var.tiers_config.db_ec2[count.index].volume_name_2
+    volume_size_2 = var.tiers_config.db_ec2[count.index].volume_size_2
+    ebs_block_devices = var.tiers_config.db_ec2[count.index].ebs_block_devices
     tags = {
-    Name        = "EC2_02"
-    Environment = "PROD-PRIVATE-DB-A"
-    Application = "HHSC-TIERS-PROD"
-    # Add more tags as needed
-  }
-
+    }
 }
-
-
-# CDB3
-module "ec2_03" {
-  source = "./modules/aws-ec2"
-  depends_on = [module.spoke1-vpc,module.sg01,module.sg02]
-
-  ami_id                = "ami-0c55b159cbfafe1f0"  # Replace with the desired AMI ID for RHEL 8.6
-  instance_type         = "x2iedn.32xlarge"  # Replace with the desired instance type
-
-  vpc_security_group_ids = [module.sg02.security_group_id]
-  subnet_id              = element(module.spoke1-vpc.subnet_order[*].id, 1)
-
-  # OS Drive
-  volume_size_1          = "8"
-
-  # Additional Disk #1 
-  volume_name_2          = "/dev/sdb"
-  volume_size_2          = "100"
-          
-  ebs_block_devices = [
-    {
-      device_name = "/dev/sdc"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdd"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sde"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdf"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdg"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdh"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdi"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },
-    {
-      device_name = "/dev/sdj"
-      volume_size = 100
-      volume_type = "io2"
-      iops        = 100
-    },    
-  ]
-
-    tags = {
-      Name        = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP_NAME}-EC2_03"
-      Environment = "${local.hhs_tags.AGENCY}-${local.hhs_tags.ENV}-${local.hhs_tags.APP_NAME}-DB-${local.hhs_tags.ZONE_A}" #"PROD-PRIVATE-DB-A"
-      Application = "${local.hhs_tags.AGENCY}-${local.hhs_tags.APP_NAME}-${local.hhs_tags.ENV}" #"HHSC-TIERS-PROD"
-    # Add more tags as needed
-  }
-}
-
-# Batch Server 1
-module "ec2_04" {
-  source = "./modules/aws-ec2"
-  depends_on = [module.spoke1-vpc,module.sg01,module.sg02]
-
-  ami_id                = "ami-0c55b159cbfafe1f0"  # Replace with the desired AMI ID for RHEL 8.6
-  #We currently do not have sufficient x2iedn.32xlarge capacity in the Availability Zone you requested (us-east-2b)
-  instance_type         = "x2iedn.16xlarge"  # Replace with the desired instance type
-
-  vpc_security_group_ids = [module.sg01.security_group_id]
-  subnet_id              = element(module.spoke1-vpc.subnet_order[*].id, 0)
-
-  # OS Drive
-  volume_size_1          = "8"
-
-  # Additional Disk #1 
-  volume_name_2          = "/dev/sdb"
-  volume_size_2          = "100"
-
-  tags = {
-    Name        = "EC2_04"
-    Environment = "PROD-PRIVATE-BATCH-A"
-    Application = "HHSC-TIERS-PROD"
-    # Add more tags as needed
-  }
-}
-
-/**
-# Batch Server 2
-module "ec2_05" {
-  source = "./modules/aws-ec2"
-
-  ami_id                = "ami-0c55b159cbfafe1f0"  # Replace with the desired AMI ID for RHEL 8.6
-  #We currently do not have sufficient x2iedn.32xlarge capacity in the Availability Zone you requested (us-east-2b)
-  instance_type         = "x2iedn.16xlarge"  # Replace with the desired instance type
-
-  vpc_security_group_ids = [module.sg01.security_group_id]
-  subnet_id              = element(module.spoke1-vpc.subnet_order[*].id, 2)
-
-  # OS Drive
-  volume_size_1          = "8"
-
-  # Additional Disk #1 
-  volume_name_2          = "/dev/sdb"
-  volume_size_2          = "100"
-
-}
-**/
